@@ -15,26 +15,8 @@ os.environ[
     "PYSPARK_SUBMIT_ARGS"
 ] = "--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1 pyspark-shell"
 
-# customSchema = StructType().add("full_count", "integer").add("version", "integer")
-customSchema = StructType().add("0", "string").add("1", "float")
-customSchemaOuter = MapType(StringType(), customSchema)
-spark = SparkSession.builder.getOrCreate()
 
-df = (
-    spark.readStream.format("kafka")
-    .option("kafka.bootstrap.servers", "localhost:9092")
-    # .option("kafka.bootstrap.servers", "zookeper:2181")
-    # .option("subscribe", "topic1")
-    .option("subscribe", "flights_raw")
-    .option("startingOffsets", "earliest")
-    # .schema(customSchema)
-    .load()
-)
-
-# transformed_df = df.selectExpr("CAST(value AS STRING) as jsonEntry").select(
-#     from_json("jsonEntry", customSchema).alias("new_name")
-# )
-row_type = (
+flight_schema = (
     StructType()
     .add("flight_id", "string", False)
     .add("aircraft_number", "string", False)
@@ -42,11 +24,11 @@ row_type = (
     .add("longitude", "float", False)
     .add("altitude", "integer", False)
 )
-another_schema = ArrayType(row_type)
+kafka_message_schema = ArrayType(flight_schema)
 
 
-@F.udf(another_schema)
-def f_json(json_string: str):
+@F.udf(kafka_message_schema)
+def custom_json_converter(json_string: str):
     data = json.loads(json_string)
     return [
         {
@@ -61,36 +43,19 @@ def f_json(json_string: str):
     ]
 
 
-transformed_df = (
-    df.selectExpr("CAST(value AS STRING) as jsonEntry")
-    .select(
-        # F.from_json("jsonEntry", "MAP<STRING,STRING>").alias("new_name")
-        # F.from_json("new_name", F.schema_of_json("new_name")).alias("new_name")
-        # (F.schema_of_json("new_name")).alias("new_name")
-        # df.value.cast(StringType()).cast(StructType()).alias("json_string")
-        # F.from_json("jsonEntry", customSchemaOuter).alias("new_name")
-        f_json("jsonEntry").alias("new_name"),
-    )
-    .select(F.explode("new_name").alias("new_name"))
+spark = SparkSession.builder.getOrCreate()
+
+df = (
+    spark.readStream.format("kafka")
+    .option("kafka.bootstrap.servers", "localhost:9092")
+    .option("subscribe", "flights_raw")
+    .option("startingOffsets", "earliest")
+    .load()
 )
-transformed_df.printSchema()
-# df.printSchema()
-# df.rdd.map(lambda row: (row, list(json.loads(row).keys()))).collect()
 
-# writer = (
-#     transformed_df.select("new_name").writeStream.format("console")
-#     # .writeStream.format("memory")
-#     .queryName("test_query")
-# )
-# query = writer.start(queryName="test_query", outputMode="append", format="console")
-# query.awaitTermination(timeout=10)
-# print(query.status)
-
-# query2 = transformed_df.select("new_name.full_count")
-query2 = transformed_df.select("new_name.*")
-# query2 = transformed_df.select("new_name")
+transformed_df = df.selectExpr("CAST(value AS STRING) as json_entry").select(
+    F.explode(custom_json_converter("json_entry")).alias("flight_data"),
+)
+query2 = transformed_df.select("flight_data.*")
 stream_query = query2.writeStream.outputMode("append").format("console").start()
 stream_query.awaitTermination(timeout=10)
-
-
-# df.select("device").where("signal > 10").groupBy("deviceType").count()
