@@ -7,6 +7,7 @@
 import json
 import os
 
+import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import ArrayType, MapType, StringType, StructType
@@ -53,9 +54,39 @@ df = (
     .load()
 )
 
-transformed_df = df.selectExpr("CAST(value AS STRING) as json_entry").select(
-    F.explode(custom_json_converter("json_entry")).alias("flight_data"),
+flights_df = df.select(
+    df.timestamp,
+    F.explode(custom_json_converter(df.value.cast("string"))).alias("flight_data"),
 )
-query2 = transformed_df.select("flight_data.*")
+
+# https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#window-operations-on-event-time
+# drop data if it's older than 1 hour
+groupped_flights_df = (
+    flights_df.select("timestamp", "flight_data.*")
+    .withWatermark("timestamp", "1 hour")
+    .groupBy(F.window("timestamp", "30 seconds"), "flight_id")
+)
+
+
+def compute_diff(group_key: tuple[dict, str], p_df: pd.DataFrame):
+    return pd.DataFrame(
+        {
+            "start": group_key[0]["start"],
+            "end": group_key[0]["end"],
+            "flight_id": group_key[1],
+            "lat_diff": p_df.latitude.diff(),
+            "long_diff": p_df.longitude.diff(),
+            "alt_diff": p_df.altitude.diff(),
+        }
+    )
+
+
+diff_df = groupped_flights_df.applyInPandas(
+    compute_diff,
+    schema="start timestamp, end timestamp, flight_id string, lat_diff float, long_diff float, alt_diff integer",
+)
+
+query2 = diff_df.dropna().filter(diff_df.lat_diff > 0).select("*")
 stream_query = query2.writeStream.outputMode("append").format("console").start()
-stream_query.awaitTermination(timeout=10)
+stream_query.awaitTermination(timeout=300)
+

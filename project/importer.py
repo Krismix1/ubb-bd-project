@@ -1,14 +1,13 @@
-import json
 import time
 
 import httpx
-from pykafka import KafkaClient
+from pykafka import KafkaClient, Producer
 
 ENDPOINT = "https://data-cloud.flightradar24.com/zones/fcgi/feed.js"
 DELAY = 5
 
 
-def loop(producer):
+def loop(producer: Producer):
     response = httpx.get(ENDPOINT, timeout=1, headers={"User-Agent": "curl/7.86.0"})
     response.raise_for_status()
 
@@ -18,7 +17,7 @@ def loop(producer):
 
 
 def main():
-    client = KafkaClient(hosts="localhost:9092")
+    client = KafkaClient(hosts="localhost:9092", broker_version="3.3.1")
     topic = client.topics["flights_raw"]
 
     last_check = 0
