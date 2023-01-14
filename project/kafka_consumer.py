@@ -100,6 +100,7 @@ groupped_flights_df = (
 
 def gcdist(lat1, lon1, lat2, lon2):
     # Great Circle Distance Formula
+    # https://jpensor.com/great-circle-distance-python/
 
     # TODO: https://en.wikipedia.org/wiki/Great-circle_distance#Computational_formulas
     # On computer systems with low floating point precision, the spherical law of cosines formula can have large rounding errors if the distance is small (if the two points are a kilometer apart on the surface of the Earth, the cosine of the central angle is near 0.99999999)
