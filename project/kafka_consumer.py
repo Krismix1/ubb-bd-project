@@ -98,35 +98,15 @@ groupped_flights_df = (
 )
 
 
-def compute_diff(group_key: tuple[dict, str], p_df: pd.DataFrame):
-    # print("----------------------")
-    # print(group_key)
-    # print("----------------------")
-    # print(p_df)
-    p_df["lat_diff"] = p_df.latitude.diff()
-    p_df["long_diff"] = p_df.longitude.diff()
-    p_df["alt_diff"] = p_df.altitude.diff()
-    p_df["has_moved"] = (
-        (p_df.lat_diff != 0) | (p_df.long_diff != 0) | (p_df.alt_diff != 0)
-    )
-    return p_df
-
-
-flight_schema_with_diff = (
-    flight_schema.add("lat_diff", FloatType())
-    .add("long_diff", FloatType())
-    .add("alt_diff", IntegerType())
-    .add("timestamp", TimestampType())
-    .add("has_moved", BooleanType())
-)
-
-# https://insight-trucks.com/en/calculate_fuel_consumption/
-
-liters_per_km_by_engine_type = defaultdict(lambda: 100)
-
-
 def gcdist(lat1, lon1, lat2, lon2):
     # Great Circle Distance Formula
+
+    # TODO: https://en.wikipedia.org/wiki/Great-circle_distance#Computational_formulas
+    # On computer systems with low floating point precision, the spherical law of cosines formula can have large rounding errors if the distance is small (if the two points are a kilometer apart on the surface of the Earth, the cosine of the central angle is near 0.99999999)
+    # The haversine formula is numerically better-conditioned for small distances
+    # TODO: We might have to use altitude for a more accurate calculation
+    # https://stackoverflow.com/questions/11710972/great-circle-distance-plus-altitude-change
+
     # The radius in KM
     R = 6378.137
 
@@ -146,13 +126,72 @@ def gcdist(lat1, lon1, lat2, lon2):
 
     dist = 2 * R * math.asin(math.sqrt(a + b * c * d))
 
-    return dist
+    return dist  # in KM
+
+
+# https://insight-trucks.com/en/calculate_fuel_consumption/
+# https://monroeaerospace.com/blog/what-type-of-fuel-do-airplanes-use/
+# With the exception of piston-based airplanes, most airplanes use kerosene fuel
+liters_per_km_by_engine_type = defaultdict(lambda: 100)
+
+# https://www.icbe.com/carbondatabase/volumeconverter.asp
+# 1 liter kerosene = 0.00255 tonnes of CO2 = 1.444 m^3 of CO2
+kerosene_liters_to_co2 = lambda x: x * 0.00255
+
+
+def compute_fuel(row):
+    row["fuel_used_liters"] = (
+        liters_per_km_by_engine_type[row.aircraft_number] * row.great_circle_distance
+    )
+    return row
+
+
+def compute_diff(group_key: tuple[dict, str], p_df: pd.DataFrame):
+    # print("----------------------")
+    # print(group_key)
+    # print("----------------------")
+    # print(p_df)
+    p_df["lat_diff"] = p_df.latitude.diff()
+    p_df["long_diff"] = p_df.longitude.diff()
+    p_df["alt_diff"] = p_df.altitude.diff()
+    p_df["has_moved"] = (
+        (p_df.lat_diff != 0) | (p_df.long_diff != 0) | (p_df.alt_diff != 0)
+    )
+    distances = []
+    for i in range(len(p_df)):
+        if i == len(p_df) - 1:
+            gcd = 0
+        else:
+            df1 = p_df.iloc[i]
+            df2 = p_df.iloc[i + 1]
+            lat1, long1 = df1.latitude, df1.longitude
+            lat2, long2 = df2.latitude, df2.longitude
+            gcd = gcdist(lat1, long1, lat2, long2)
+
+        distances.append(gcd)
+
+    p_df["great_circle_distance"] = distances
+    p_df = p_df.apply(compute_fuel, axis=1)
+
+    return p_df
+
+
+flight_schema_with_diff = (
+    flight_schema.add("lat_diff", FloatType())
+    .add("long_diff", FloatType())
+    .add("alt_diff", IntegerType())
+    .add("timestamp", TimestampType())
+    .add("has_moved", BooleanType())
+    .add("great_circle_distance", FloatType())
+    .add("fuel_used_liters", FloatType())
+)
 
 
 diff_df = groupped_flights_df.applyInPandas(compute_diff, flight_schema_with_diff)
 
 # query2 = diff_df.dropna().filter(diff_df.lat_diff > 0).select("*")
-query2 = diff_df.dropna().filter(diff_df.flight_id == "2e61ed80").select("*")
+# query2 = diff_df.dropna().filter(diff_df.flight_id == "2e61ed80").select("*")
+query2 = diff_df.dropna().select("*")
 stream_query = query2.writeStream.outputMode("append").format("console").start()
 stream_query.awaitTermination(timeout=300)
 
