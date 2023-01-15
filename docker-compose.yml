@@ -94,16 +94,21 @@ services:
       - hadoop_name:/hadoop/dfs/name
     environment:
       - CLUSTER_NAME=bd-project
+
   datanode1:
     image: uhopper/hadoop-datanode
     hostname: datanode1
     container_name: datanode1
     domainname: hadoop
     # net: hadoop
+    expose:
+      - 50020
+      - 50075
     volumes:
       - hadoop_data:/hadoop/dfs/data
     environment:
       - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+      - CLUSTER_NAME=bd-project
 
   resourcemanager:
     image: uhopper/hadoop-resourcemanager
