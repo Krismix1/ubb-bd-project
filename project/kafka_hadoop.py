@@ -56,7 +56,7 @@ df = (
     .option("subscribe", "flights_raw")
     .option("startingOffsets", "earliest")
     .option("failOnDataLoss", "false")
-    .option("groupIdPrefix", "spark_kafka_hadoop")
+    # .option("groupIdPrefix", "spark_kafka_hadoop")
     # .option("kafka.group.id", "kafka_hadoop")
     .load()
 )
@@ -68,9 +68,9 @@ flights_df = df.select(
 
 
 stream_query = (
-    flights_df.writeStream.format("parquet")
-    .option("checkpointLocation", "hdfs://localhost/checkpoints")
-    .option("path", "hdfs://localhost/testme")
+    flights_df.writeStream.format("json")
+    .option("checkpointLocation", "hdfs://namenode/checkpoints")
+    .option("path", "hdfs://namenode/aircraft_data_json")
     .start()
 )
 stream_query.awaitTermination(timeout=300)

@@ -8,9 +8,14 @@
 # spark-submit --master spark://localhost:7077 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1 /kafka_consumer.py
 # --master yarn: When running with master 'yarn' either HADOOP_CONF_DIR or YARN_CONF_DIR must be set in the environment
 # https://sparkbyexamples.com/spark/spark-submit-command/
-HADOOP_USER_NAME=root spark-submit --master spark://localhost:7077 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1 project/kafka_hadoop.py
+# spark-submit --master spark://localhost:7077 --executor-cores 2 --executor-memory 8G --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1 \
+#     project/kafka_hadoop.py
+
+docker cp project/kafka_hadoop.py spark:/
+docker exec -it spark bash -c 'SP_HOST=spark://spark:7077 HADOOP_USER_NAME=root spark-submit --master spark://localhost:7077 --executor-cores 2 --executor-memory 8G --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1 /kafka_hadoop.py'
 
 # manager info
 # https://stackoverflow.com/questions/66824271/cluster-deploy-mode-is-currently-not-supported-for-python-applications-on-standa
 # https://spark.apache.org/docs/latest/cluster-overview.html
 # https://spark.apache.org/docs/latest/running-on-yarn.html
+

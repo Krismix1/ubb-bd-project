@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
+import json
 import sys
 
 
 def read_input(file):
     for line in file:
         # split the line into words
-        yield line.split()
+        data = json.loads(line)
+        yield data
 
 
 def main(separator="\t"):
     # input comes from STDIN (standard input)
     data = read_input(sys.stdin)
-    for words in data:
+    for flight in data:
         # write the results to STDOUT (standard output);
         # what we output here will be the input for the
         # Reduce step, i.e. the input for reducer.py
-        #
-        # tab-delimited; the trivial word count is 1
-        for word in words:
-            print("%s%s%d" % (word, separator, 1))
+
+        key = flight["flight_data"]["flight_id"] # or maybe use aircraft_id
+        print("%s%s%s" % (key, separator, json.dumps(flight)))
 
 
 if __name__ == "__main__":

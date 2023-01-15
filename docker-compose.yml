@@ -14,6 +14,7 @@ services:
     ports:
       - '8080:8080'
       - '7077:7077'
+      - '41573:41573'
   spark-worker:
     # image: docker.io/bitnami/spark:3.3
     # build: Dockerfile.spark
@@ -25,8 +26,8 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077
-      - SPARK_WORKER_MEMORY=4G
-      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=16G
+      - SPARK_WORKER_CORES=4
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
@@ -82,61 +83,82 @@ services:
         # hadoop
 
   namenode:
-    image: uhopper/hadoop-namenode
-    hostname: namenode
+    # image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     container_name: namenode
-    domainname: hadoop
-    # net: hadoop
+    restart: always
+    build:
+      context: docker-hadoop/namenode
     ports:
+      - 9870:9870
+      - 9000:8020
       - 50070:50070
       - 8020:8020
     volumes:
-      - hadoop_name:/hadoop/dfs/name
+      - hadoop_namenode:/hadoop/dfs/name
     environment:
-      - CLUSTER_NAME=bd-project
+      - CLUSTER_NAME=test
+      # - HADOOP_CLASSPATH=${JAVA_HOME}/lib/tools.jar
+      - HADOOP_CLASSPATH=/usr/lib/jvm/java-8-openjdk-amd64/lib/tools.jar
+    env_file:
+      - ./docker-hadoop/hadoop.env
 
-  datanode1:
-    image: uhopper/hadoop-datanode
-    hostname: datanode1
-    container_name: datanode1
-    domainname: hadoop
-    # net: hadoop
-    expose:
-      - 50020
-      - 50075
+  datanode:
+    # image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    restart: always
+    build:
+      context: docker-hadoop/datanode
     volumes:
-      - hadoop_data:/hadoop/dfs/data
+      - hadoop_datanode:/hadoop/dfs/data
     environment:
-      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
-      - CLUSTER_NAME=bd-project
-
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./docker-hadoop/hadoop.env
+  
   resourcemanager:
-    image: uhopper/hadoop-resourcemanager
-    hostname: resourcemanager
+    # image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
     container_name: resourcemanager
-    domainname: hadoop
-    # net: hadoop
+    restart: always
+    build:
+      context: docker-hadoop/resourcemanager
+    ports:
+      - 8032:8032
+      - 8088:8088
     environment:
-      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
-      - YARN_CONF_yarn_log___aggregation___enable=true
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode:9864"
+    env_file:
+      - ./docker-hadoop/hadoop.env
 
   nodemanager1:
-    image: uhopper/hadoop-nodemanager
-    hostname: nodemanager1
-    container_name: nodemanager1
-    domainname: hadoop
-    # net: hadoop
+    # image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
+    container_name: nodemanager
+    restart: always
+    build:
+      context: docker-hadoop/nodemanager
     environment:
-      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
-      - YARN_CONF_yarn_resourcemanager_hostname=resourcemanager
-      - YARN_CONF_yarn_log___aggregation___enable=true
-      - YARN_CONF_yarn_nodemanager_remote___app___log___dir=/app-logs
-
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode:9864 resourcemanager:8088"
+    env_file:
+      - ./docker-hadoop/hadoop.env
+  
+  historyserver:
+    # image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
+    container_name: historyserver
+    restart: always
+    build:
+      context: docker-hadoop/historyserver
+    environment:
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode:9864 resourcemanager:8088"
+    ports:
+      - 8188:8188
+    volumes:
+      - hadoop_historyserver:/hadoop/yarn/timeline
+    env_file:
+      - ./docker-hadoop/hadoop.env
+  
 volumes:
-  hadoop_name:
-    driver: local
-  hadoop_data:
-    driver: local
+  hadoop_namenode:
+  hadoop_datanode:
+  hadoop_historyserver:
 
 # volumes:
 #   zookeeper_data:
