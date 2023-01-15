@@ -83,17 +83,19 @@ services:
         # hadoop
 
   namenode:
+    image: m8928/hadoop-namenode:3.2.2-java8
     # image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     container_name: namenode
     restart: always
-    build:
-      context: docker-hadoop/namenode
     ports:
       - 9870:9870
+      # - 9000:9000
       - 9000:8020
       - 50070:50070
       - 8020:8020
     volumes:
+      # - /data/docker_container/hadoop_namenode:/hadoop/dfs/name
+      # - /tmp:/tmp
       - hadoop_namenode:/hadoop/dfs/name
     environment:
       - CLUSTER_NAME=test
@@ -102,66 +104,160 @@ services:
     env_file:
       - ./docker-hadoop/hadoop.env
 
-  datanode:
-    # image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
-    container_name: datanode
+  datanode01:
+    image: m8928/hadoop-datanode:3.2.2-java8
+    container_name: datanode01
     restart: always
-    build:
-      context: docker-hadoop/datanode
     volumes:
-      - hadoop_datanode:/hadoop/dfs/data
+      # - /data/docker_container/hadoop_datanode01:/hadoop/dfs/data
+      - hadoop_datanode01:/hadoop/dfs/data
     environment:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
       - ./docker-hadoop/hadoop.env
-  
+
+  # datanode02:
+  #   image: m8928/hadoop-datanode:3.2.2-java8
+  #   container_name: datanode02
+  #   restart: always
+  #   volumes:
+  #     # - /data/docker_container/hadoop_datanode02:/hadoop/dfs/data
+  #     - hadoop_datanode02:/hadoop/dfs/data
+  #   environment:
+  #     SERVICE_PRECONDITION: "namenode:9870"
+  #   env_file:
+  #     - ./docker-hadoop/hadoop.env
+
+  # datanode03:
+  #   image: m8928/hadoop-datanode:3.2.2-java8
+  #   container_name: datanode03
+  #   restart: always
+  #   volumes:
+  #     # - /data/docker_container/hadoop_datanode03:/hadoop/dfs/data
+  #     - hadoop_datanode03:/hadoop/dfs/data
+  #   environment:
+  #     SERVICE_PRECONDITION: "namenode:9870"
+  #   env_file:
+  #     - ./docker-hadoop/hadoop.env
+
   resourcemanager:
     # image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
+    image: m8928/hadoop-resourcemanager:3.2.2-java8
     container_name: resourcemanager
     restart: always
-    build:
-      context: docker-hadoop/resourcemanager
+    expose:
+      - 8031
+      - 8030
     ports:
+      - 18088:8088
       - 8032:8032
       - 8088:8088
     environment:
-      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode:9864"
+      # SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode01:9864 datanode02:9864 datanode03:9864"
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode01:9864"
     env_file:
       - ./docker-hadoop/hadoop.env
+    depends_on:
+      - datanode01
+      # - datanode02
+      # - datanode03
 
-  nodemanager1:
-    # image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
-    container_name: nodemanager
+  nodemanager01:
+    image: m8928/hadoop-nodemanager:3.2.2-java8
+    container_name: nodemanager01
     restart: always
-    build:
-      context: docker-hadoop/nodemanager
     environment:
-      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode:9864 resourcemanager:8088"
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode01:9864 resourcemanager:8088"
     env_file:
       - ./docker-hadoop/hadoop.env
-  
+    depends_on:
+      - resourcemanager
+
+  # nodemanager02:
+  #   image: m8928/hadoop-nodemanager:3.2.2-java8
+  #   container_name: nodemanager02
+  #   restart: always
+  #   environment:
+  #     SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode02:9864 resourcemanager:8088"
+  #   env_file:
+  #     - ./docker-hadoop/hadoop.env
+  #   depends_on:
+  #     - resourcemanager
+
+  # nodemanager03:
+  #   image: m8928/hadoop-nodemanager:3.2.2-java8
+  #   container_name: nodemanager03
+  #   restart: always
+  #   environment:
+  #     SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode03:9864 resourcemanager:8088"
+  #   env_file:
+  #     - ./docker-hadoop/hadoop.env
+  #   depends_on:
+  #     - resourcemanager
+
   historyserver:
-    # image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
+    image: m8928/hadoop-historyserver:3.2.2-java8
     container_name: historyserver
     restart: always
-    build:
-      context: docker-hadoop/historyserver
-    environment:
-      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode:9864 resourcemanager:8088"
     ports:
+      - 18188:8188
       - 8188:8188
+    environment:
+      # SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode01:9864 datanode02:9864 datanode03:9864 resourcemanager:8088"
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode01:9864 resourcemanager:8088"
     volumes:
+      # - /data/docker_container/hadoop_historyserver:/hadoop/yarn/timeline
       - hadoop_historyserver:/hadoop/yarn/timeline
     env_file:
       - ./docker-hadoop/hadoop.env
-  
+
+  # metastore:
+  #   image: mariadb:latest
+  #   container_name: metastore
+  #   restart: always
+  #   ports:
+  #     - 23306:3306
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: "!gl00sec"
+  #     MYSQL_DATABASE: "hive"
+  #     MYSQL_USER: "hive"
+  #     MYSQL_PASSWORD: "!gl00sec"
+  metastore:
+    image: postgres:latest
+    expose:
+      - 5432
+    volumes:
+      - postgresql:/var/lib/postgresql/data/pgdata
+    environment:
+      POSTGRES_PASSWORD: "hive"
+      POSTGRES_USER: "hive"
+      POSTGRES_DB: "hive"
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+
+  hiveserver:
+    image: m8928/hadoop-hiveserver:3.2.2-java8
+    # entrypoint: ["sleep", "300"]
+    container_name: hiveserver
+    # restart: never
+    ports:
+      - 20000:10000
+      - 20002:10002
+    environment:
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 metastore:5432"
+      HADOOP_HOME: /opt/hadoop-3.3.4
+      HIVE_CONF_DIR: /opt/hive/conf
+      # PATH: $PATH:$HADOOP_HOME/bin:$HIVE_HOME/bin
+
+      MAPRED_CONF_yarn_app_mapreduce_am_env: HADOOP_MAPRED_HOME=/opt/hadoop-3.3.4
+      MAPRED_CONF_mapreduce_map_env: HADOOP_MAPRED_HOME=/opt/hadoop-3.3.4
+      MAPRED_CONF_mapreduce_reduce_env: HADOOP_MAPRED_HOME=/opt/hadoop-3.3.4
+    env_file:
+      - ./docker-hadoop/hadoop.env
+
 volumes:
   hadoop_namenode:
-  hadoop_datanode:
+  hadoop_datanode01:
+  hadoop_datanode02:
+  hadoop_datanode03:
   hadoop_historyserver:
-
-# volumes:
-#   zookeeper_data:
-#     driver: local
-#   kafka_data:
-#     driver: local
+  postgresql:

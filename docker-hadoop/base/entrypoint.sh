@@ -18,17 +18,21 @@ function configure() {
     local module=$2
     local envPrefix=$3
 
-    local var
-    local value
+    if [ -f "$path" ]; then  
+        local var
+        local value
     
-    echo "Configuring $module"
-    for c in `printenv | perl -sne 'print "$1 " if m/^${envPrefix}_(.+?)=.*/' -- -envPrefix=$envPrefix`; do 
-        name=`echo ${c} | perl -pe 's/___/-/g; s/__/@/g; s/_/./g; s/@/_/g;'`
-        var="${envPrefix}_${c}"
-        value=${!var}
-        echo " - Setting $name=$value"
-        addProperty $path $name "$value"
-    done
+        echo "Configuring $module"
+        for c in `printenv | perl -sne 'print "$1 " if m/^${envPrefix}_(.+?)=.*/' -- -envPrefix=$envPrefix`; do 
+            name=`echo ${c} | perl -pe 's/___/-/g; s/__/@/g; s/_/./g; s/@/_/g;'`
+            var="${envPrefix}_${c}"
+            value=${!var}
+            echo " - Setting $name=$value"
+            addProperty $path $name "$value"
+        done
+    else
+        echo "Configuration $module is fail."
+    fi
 }
 
 configure /etc/hadoop/core-site.xml core CORE_CONF
@@ -37,6 +41,8 @@ configure /etc/hadoop/yarn-site.xml yarn YARN_CONF
 configure /etc/hadoop/httpfs-site.xml httpfs HTTPFS_CONF
 configure /etc/hadoop/kms-site.xml kms KMS_CONF
 configure /etc/hadoop/mapred-site.xml mapred MAPRED_CONF
+configure /opt/hive/conf/hive-site.xml hive HIVE_CONF
+configure /etc/hadoop/tez-site.xml tez TEZ_CONF
 
 if [ "$MULTIHOMED_NETWORK" = "1" ]; then
     echo "Configuring for multihomed network"
@@ -83,7 +89,7 @@ function wait_for_it()
     local serviceport=$1
     local service=${serviceport%%:*}
     local port=${serviceport#*:}
-    local retry_seconds=5
+    local retry_seconds=3
     local max_try=100
     let i=1
 

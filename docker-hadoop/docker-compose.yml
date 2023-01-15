@@ -2,72 +2,124 @@ version: "3"
 
 services:
   namenode:
-    # image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    image: m8928/hadoop-namenode:3.2.2-java8
     container_name: namenode
     restart: always
-    build:
-      context: namenode
     ports:
       - 9870:9870
       - 9000:9000
     volumes:
-      - hadoop_namenode:/hadoop/dfs/name
+      - /data/docker_container/hadoop_namenode:/hadoop/dfs/name
+      - /tmp:/tmp
     environment:
-      - CLUSTER_NAME=test
-      # - HADOOP_CLASSPATH=${JAVA_HOME}/lib/tools.jar
-      - HADOOP_CLASSPATH=/usr/lib/jvm/java-8-openjdk-amd64/lib/tools.jar
+      - CLUSTER_NAME=SEARCH
     env_file:
       - ./hadoop.env
 
-  datanode:
-    # image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
-    container_name: datanode
+  datanode01:
+    image: m8928/hadoop-datanode:3.2.2-java8
+    container_name: datanode01
     restart: always
-    build:
-      context: datanode
     volumes:
-      - hadoop_datanode:/hadoop/dfs/data
+      - /data/docker_container/hadoop_datanode01:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./hadoop.env
+
+  datanode02:
+    image: m8928/hadoop-datanode:3.2.2-java8
+    container_name: datanode02
+    restart: always
+    volumes:
+      - /data/docker_container/hadoop_datanode02:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./hadoop.env
+
+  datanode03:
+    image: m8928/hadoop-datanode:3.2.2-java8
+    container_name: datanode03
+    restart: always
+    volumes:
+      - /data/docker_container/hadoop_datanode03:/hadoop/dfs/data
     environment:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
       - ./hadoop.env
   
   resourcemanager:
-    # image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
+    image: m8928/hadoop-resourcemanager:3.2.2-java8
     container_name: resourcemanager
     restart: always
-    build:
-      context: resourcemanager
+    ports:
+     - 18088:8088
     environment:
-      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864"
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode01:9864 datanode02:9864 datanode03:9864"
     env_file:
       - ./hadoop.env
 
-  nodemanager1:
-    # image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
-    container_name: nodemanager
+  nodemanager01:
+    image: m8928/hadoop-nodemanager:3.2.2-java8
+    container_name: nodemanager01
     restart: always
-    build:
-      context: nodemanager
     environment:
-      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode01:9864 resourcemanager:8088"
     env_file:
       - ./hadoop.env
-  
+ 
+  nodemanager02:
+    image: m8928/hadoop-nodemanager:3.2.2-java8
+    container_name: nodemanager02
+    restart: always
+    environment:
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode02:9864 resourcemanager:8088"
+    env_file:
+      - ./hadoop.env
+
+  nodemanager03:
+    image: m8928/hadoop-nodemanager:3.2.2-java8
+    container_name: nodemanager03
+    restart: always
+    environment:
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode03:9864 resourcemanager:8088"
+    env_file:
+      - ./hadoop.env
+ 
   historyserver:
-    # image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
+    image: m8928/hadoop-historyserver:3.2.2-java8
     container_name: historyserver
     restart: always
-    build:
-      context: historyserver
+    ports:
+      - 18188:8188
     environment:
-      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 datanode01:9864 datanode02:9864 datanode03:9864 resourcemanager:8088"
     volumes:
-      - hadoop_historyserver:/hadoop/yarn/timeline
+      - /data/docker_container/hadoop_historyserver:/hadoop/yarn/timeline
     env_file:
       - ./hadoop.env
-  
-volumes:
-  hadoop_namenode:
-  hadoop_datanode:
-  hadoop_historyserver:
+
+  metastore:
+    image: mariadb:latest
+    container_name: metastore
+    restart: always
+    ports:
+      - 23306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: "!gl00sec"
+      MYSQL_DATABASE: "hive"
+      MYSQL_USER: "hive"
+      MYSQL_PASSWORD: "!gl00sec"
+
+  hiveserver:
+    image: hadoop-hive:3.1.2-hadoop3.2.1-java8
+    container_name: hiveserver
+    restart: always
+    ports:
+      - 20000:10000
+      - 20002:10002
+    environment:
+      SERVICE_PRECONDITION: "namenode:8020 namenode:9870 metastore:3306"
+    env_file:
+      - ./hadoop.env
