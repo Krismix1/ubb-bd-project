@@ -74,13 +74,15 @@ def custom_json_converter(json_string: str):
     ]
 
 
-spark = SparkSession.builder.getOrCreate()
+sp_host = os.environ.get("SP_HOST", "spark://localhost:7077")
+spark = SparkSession.builder.master(sp_host).getOrCreate()
 
 df = (
     spark.readStream.format("kafka")
-    .option("kafka.bootstrap.servers", "localhost:9092")
+    .option("kafka.bootstrap.servers", os.environ.get("KAFKA_HOST", "localhost:9092"))
     .option("subscribe", "flights_raw")
     .option("startingOffsets", "earliest")
+    .option("failOnDataLoss", "false")
     .load()
 )
 
@@ -195,11 +197,3 @@ diff_df = groupped_flights_df.applyInPandas(compute_diff, flight_schema_with_dif
 query2 = diff_df.dropna().select("*")
 stream_query = query2.writeStream.outputMode("append").format("console").start()
 stream_query.awaitTermination(timeout=300)
-
-# (
-#     query2.writeStream.format("json")
-#     .option("path", "./output")
-#     .option("checkpointLocation", "./checkpoints")
-#     .start()
-#     .awaitTermination(timeout=120)
-# )
