@@ -1,9 +1,12 @@
 FROM bitnami/spark:3.3
 
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends curl
+
 USER 1001
-COPY spark-3.3.1-bin-hadoop2.tgz .
-RUN rm -r /opt/bitnami/spark/jars && \
-    # curl https://www.apache.org/dyn/closer.lua/spark/spark-3.3.1/spark-3.3.1-bin-hadoop2.tgz | \
+RUN curl https://dlcdn.apache.org/spark/spark-3.3.1/spark-3.3.1-bin-hadoop2.tgz -o spark-3.3.1-bin-hadoop2.tgz && \
+    # https://www.apache.org/dyn/closer.lua/spark/spark-3.3.1/spark-3.3.1-bin-hadoop2.tgz
+    rm -r /opt/bitnami/spark/jars && \
     mkdir -p /tmp/spark && \
     tar --extract --gzip --strip=1 --directory /tmp/spark/ -f spark-3.3.1-bin-hadoop2.tgz && \
     cp -r /tmp/spark/jars /opt/bitnami/spark
