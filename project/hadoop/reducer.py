@@ -93,9 +93,9 @@ def compute_diff(group_key, p_df):
     return p_df
 
 
-def main(separator="\t"):
+def main(separator=","):
     # input comes from STDIN (standard input)
-    all_data = read_mapper_output(sys.stdin, separator=separator)
+    all_data = read_mapper_output(sys.stdin, separator='\t')
     # groupby groups multiple word-count pairs by word,
     # and creates an iterator that returns consecutive keys and their group:
     #   current_word - string containing a word (the key)
@@ -125,7 +125,7 @@ def main(separator="\t"):
             distance += gcd
             fuel_used += fuel_used_liters
 
-        print("%s%s%f%s%f" % (current_flight, separator, distance, separator, fuel_used))
+        print("%f%s%f%s%s" % (distance, separator, fuel_used, separator, current_flight))
 
 
 if __name__ == "__main__":
