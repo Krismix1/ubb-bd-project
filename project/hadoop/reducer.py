@@ -11,7 +11,7 @@ from operator import itemgetter
 def read_mapper_output(file, separator="\t"):
     for line in file:
         flight_id, data = line.rstrip().split(separator, 1)
-        yield flight_id, json.loads(data)
+        yield flight_id.strip(), json.loads(data)
 
 
 def gcdist(lat1, lon1, lat2, lon2):
@@ -94,12 +94,9 @@ def compute_diff(group_key, p_df):
 
 
 def main(separator=","):
-    # input comes from STDIN (standard input)
-    all_data = read_mapper_output(sys.stdin, separator='\t')
+    all_data = read_mapper_output(sys.stdin, separator="\t")
     # groupby groups multiple word-count pairs by word,
-    # and creates an iterator that returns consecutive keys and their group:
-    #   current_word - string containing a word (the key)
-    #   group - iterator yielding all ["&lt;current_word&gt;", "&lt;count&gt;"] items
+    # and creates an iterator that returns consecutive keys and their group
     for current_flight, group in groupby(all_data, itemgetter(0)):
         distance = 0
         fuel_used = 0
@@ -125,7 +122,7 @@ def main(separator=","):
             distance += gcd
             fuel_used += fuel_used_liters
 
-        print("%f%s%f%s%s" % (distance, separator, fuel_used, separator, current_flight))
+        print(separator.join([str(distance), str(fuel_used), current_flight.strip()]))
 
 
 if __name__ == "__main__":

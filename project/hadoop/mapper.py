@@ -18,7 +18,7 @@ def main(separator="\t"):
         # what we output here will be the input for the
         # Reduce step, i.e. the input for reducer.py
 
-        key = flight["flight_data"]["flight_id"] # or maybe use aircraft_id
+        key = flight["flight_data"]["flight_id"]  # or maybe use aircraft_id
         print("%s%s%s" % (key, separator, json.dumps(flight)))
 
 
